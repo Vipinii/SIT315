@@ -1,0 +1,52 @@
+const int pir1 = 2;   // PIR sensor 1
+const int pir2 = 3;   // PIR sensor 2
+const int ledPin1 = LED_BUILTIN; // Built-in LED
+const int ledPin2 = 8;  // LED connected to pin 8
+
+void setup()
+{
+  pinMode(ledPin1, OUTPUT);
+  pinMode(ledPin2, OUTPUT);
+  pinMode(pir1, INPUT);
+  pinMode(pir2, INPUT);
+  Serial.begin(9600);
+
+  attachInterrupt(digitalPinToInterrupt(pir1), motionDetected1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(pir2), motionDetected2, CHANGE);
+}
+
+void loop()
+{
+}
+
+void motionDetected1()
+{
+  if (digitalRead(pir1) == HIGH)
+  {
+    Serial.println("Motion Detected on Sensor 1");
+    digitalWrite(ledPin1, HIGH); // Turn off the LED 1
+    Serial.println("LED 1 is off");
+  }
+  else
+  {
+    Serial.println("No Motion on Sensor 1");
+    digitalWrite(ledPin1, LOW);
+    Serial.println("LED 1 is on");
+  }
+}
+
+void motionDetected2()
+{
+  if (digitalRead(pir2) == HIGH)
+  {
+    Serial.println("Motion Detected on Sensor 2");
+    digitalWrite(ledPin2, HIGH); // Turn off the LED 2
+    Serial.println("LED 2 is off");
+  }
+  else
+  {
+    Serial.println("No Motion on Sensor 2");
+    digitalWrite(ledPin2, LOW);
+    Serial.println("LED 2 is on");
+  }
+}
