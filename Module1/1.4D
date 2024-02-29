@@ -1,100 +1,79 @@
-const int pir1 = 2;   // PIR sensor 1
-const int pir2 = 3;   // PIR sensor 2
-const int echoPin = 4;   // Echo pin of the ultrasonic sensor
-const int trigPin = 5;   // Trigger pin of the ultrasonic sensor
-const int ledPin1 = LED_BUILTIN; // Built-in LED
-const int ledPin2 = 8;  // LED connected to pin 8
-const int ledPin3 = 9;   //LED connected to pin 9
-const int buzzer = 10;  //LED connected to pin 10
+#define Soil 3
+#define PIR 4 
+#define Ard 2
 
-volatile bool pir1_state = false;
-volatile bool pir2_state = false;
-volatile bool distance_state = false;
+#define Soil_LED 10
+#define PIR_LED 12
+#define timer_LED 11
+#define Ard_LED 13
+
+volatile bool Soil_LED_state = false;
+volatile bool PIR_LED_state = false;
+volatile bool Ard_LED_state = false;
+
+int a = 2;
+
+void timmerfunction()
+{
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1  = 0;
+  OCR1A = 31249;
+  TCCR1B |= (1 << WGM12);
+  TCCR1B |= (1 << CS12) | (0 << CS11) | (1 << CS10);
+  TIMSK1 |= (1 << OCIE1A);
+}
+
+ISR(TIMER1_COMPA_vect){
+  Serial.print("Led Timer: ");
+  Serial.print(a);
+  Serial.println(" milliseconds");
+  digitalWrite(timer_LED, digitalRead(timer_LED) ^ 1);
+  a = a+2;
+}
 
 void setup() {
-  Serial.begin(9600);
-  pinMode(ledPin1, OUTPUT);
-  pinMode(ledPin2, OUTPUT);
-  pinMode(ledPin3, OUTPUT);
-  pinMode(buzzer, OUTPUT);
-  pinMode(pir1, INPUT);
-  pinMode(pir2, INPUT);
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  pinMode(Soil_LED, OUTPUT);
+  pinMode(PIR_LED, OUTPUT);
+  pinMode(timer_LED, OUTPUT);
+  pinMode(Ard_LED, OUTPUT);
   
-  //PCI for D
+  pinMode(Soil, INPUT);
+  pinMode(PIR, INPUT);
+  pinMode(Ard, INPUT);
+  
+  Serial.begin(9600);
+  
+  timmerfunction();
+  
+  noInterrupts();
+  
   PCICR |= B00000100;
   PCMSK2 |= B00011100;
-  
-  
-   // Set up Timer 1
-  noInterrupts(); // disables all interrupts
- 
-  TCCR1A = 0; // normal operation
-  TCNT1 = 0;
-  
-    // sets the LED flashing rate (slowest of 1Hz chosen)
-  OCR1A =  62500; // Compare register value (16MHz/256Hz/desired Hz)
- 
-  
-  TCCR1B = bit(WGM12) | bit(CS12); // CTC mode and 256 prescaler
-  TIMSK1 = bit(OCIE1A); // enable Timer Compare interrupt
-  
-  interrupts(); // enable all interrupts
-  
-
-  
+  interrupts();
 }
 
+void loop() {}
 
-  // Timer Compare ISR to toggle in-built LED
-ISR(TIMER1_COMPA_vect)
-{ 
-  digitalWrite (buzzer, digitalRead(buzzer)^1); // toggles LED
-}
-  
-
-// ISR for D
-ISR(PCINT2_vect) {
-  if (digitalRead(pir1) == HIGH) {
-    pir1_state = !pir1_state;
-    digitalWrite(ledPin1, pir1_state);
-    Serial.println("PIR 1 triggered");
+ISR(PCINT2_vect)
+{
+  if(digitalRead(Soil) == HIGH) 
+  {
+    Soil_LED_state = !Soil_LED_state;
+    digitalWrite(Soil_LED, Soil_LED_state);
+    Serial.println("Soil Moisture Detected");
   }
-  if (digitalRead(pir2) == HIGH) {
-    pir2_state = !pir2_state;
-    digitalWrite(ledPin2, pir2_state);
-    Serial.println("PIR 2 triggered");
+  if(digitalRead(PIR) == HIGH) 
+  {
+    PIR_LED_state = !PIR_LED_state;
+    digitalWrite(PIR_LED, PIR_LED_state);
+    Serial.println("Motion detected by 1st sensor ");
   }
   
-  // Trigger ultrasonic sensor
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  
-  // Measure the duration for the echo to return
-  unsigned long duration = pulseIn(echoPin, HIGH);
-  
-  // Calculate distance (in cm) based on the speed of sound (approx. 343 m/s)
-  float distance = duration * 0.0343 / 2;
-  
-  
-  // Check if the distance is less than 100 cm
-  if (distance <100) {
-    // If the distance is less than 100 cm, set the LED state accordingly
-    distance_state = !distance_state;
-    digitalWrite(ledPin3, distance_state);
-    Serial.println("Ultrasonic sensor triggered");
+  if(digitalRead(Ard) == HIGH) 
+  {
+    Ard_LED_state = !Ard_LED_state;
+    digitalWrite(Ard_LED, Ard_LED_state);
+    Serial.println("Arduino");
   }
-}
-
-
-
-
-void loop() {
- 
-  
-  // Your main loop code, if any
 }
