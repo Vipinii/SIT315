@@ -1,0 +1,158 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+
+public class TrafficData
+{
+  public int Index { get; set; }
+  public string Timestamp { get; set; }
+  public int TrafficLightId { get; set; }
+  public int NumberOfCars { get; set; }
+}
+
+public class Program
+{
+  private static readonly object LockObject = new object();
+  private static readonly Random Random = new Random();
+
+  private static int _producerCount = 0;
+  private static int _consumerCount = 0;
+  private static int _totalRows = 0;
+
+  private static readonly int HourIndex = 48;
+
+  private static readonly List<TrafficData> TrafficDataList = new List<TrafficData>();
+  private static readonly TrafficData[] TrafficLightSorter = new TrafficData[4];
+
+  private static readonly AutoResetEvent ProducerAutoResetEvent = new AutoResetEvent(false);
+  private static readonly AutoResetEvent ConsumerAutoResetEvent = new AutoResetEvent(false);
+
+  private static void Produce(object threadId)
+  {
+    while (_producerCount < _totalRows)
+    {
+      lock (LockObject)
+      {
+        if (_producerCount < _totalRows)
+        {
+          var index = _producerCount;
+          var data = TrafficDataList[index];
+          _producerCount++;
+
+          Console.WriteLine($"Producing data: Index - {data.Index}, Timestamp - {data.Timestamp}, TrafficLightId - {data.TrafficLightId}, NumberOfCars - {data.NumberOfCars}");
+
+          ConsumerAutoResetEvent.Set();
+        }
+        else
+        {
+          ProducerAutoResetEvent.WaitOne();
+        }
+      }
+
+      Thread.Sleep(Random.Next(0, 3000));
+    }
+  }
+
+  private static void Consume(object threadId)
+  {
+    while (_consumerCount < _totalRows)
+    {
+      lock (LockObject)
+      {
+        if (TrafficDataList.Count > 0)
+        {
+          var data = TrafficDataList[0];
+          TrafficDataList.RemoveAt(0);
+
+          Console.WriteLine($"Consuming data: Index - {data.Index}, Timestamp - {data.Timestamp}, TrafficLightId - {data.TrafficLightId}, NumberOfCars - {data.NumberOfCars}");
+
+          if (_consumerCount % HourIndex == 0)
+          {
+            // Fill TrafficLightSorter with proper values
+            for (int i = 0; i < TrafficLightSorter.Length; i++)
+            {
+              TrafficLightSorter[i] = new TrafficData();
+            }
+
+            // Copy data to TrafficLightSorter
+            for (int i = 0; i < TrafficDataList.Count && i < TrafficLightSorter.Length; i++)
+            {
+              TrafficLightSorter[i] = TrafficDataList[i];
+            }
+
+            // Sort TrafficLightSorter
+            Array.Sort(TrafficLightSorter, (x, y) => y.NumberOfCars.CompareTo(x.NumberOfCars));
+
+            Console.WriteLine($"Traffic lights sorted according to most busy| Time: {data.Timestamp}");
+            Console.WriteLine("Traffic Light\tNumber of Cars");
+            foreach (var light in TrafficLightSorter)
+            {
+              Console.WriteLine($"{light.TrafficLightId}\t\t{light.NumberOfCars}");
+            }
+          }
+
+          _consumerCount++;
+          ProducerAutoResetEvent.Set();
+        }
+        else
+        {
+          ConsumerAutoResetEvent.WaitOne();
+        }
+      }
+
+      Thread.Sleep(Random.Next(0, 3000));
+    }
+  }
+
+  private static void GetTrafficData(string filename)
+  {
+    try
+    {
+      using (var reader = new StreamReader(filename))
+      {
+        reader.ReadLine(); // Skipping the header line
+        while (!reader.EndOfStream)
+        {
+          var line = reader.ReadLine();
+          var parts = line.Split(',');
+
+          var data = new TrafficData
+          {
+            Index = int.Parse(parts[0]),
+            Timestamp = parts[1],
+            TrafficLightId = int.Parse(parts[2]),
+            NumberOfCars = int.Parse(parts[3])
+          };
+
+          TrafficDataList.Add(data);
+          _totalRows++;
+        }
+      }
+    }
+    catch (IOException e)
+    {
+      Console.WriteLine($"Error reading file: {e.Message}");
+    }
+  }
+
+  public static void Main(string[] args)
+  {
+    Console.Write("Enter the filename: ");
+    var filename = Console.ReadLine();
+
+    GetTrafficData(filename);
+
+    for (var i = 0; i < 2; i++)
+    {
+      var producerThread = new Thread(Produce);
+      producerThread.Start();
+    }
+
+    for (var i = 0; i < 2; i++)
+    {
+      var consumerThread = new Thread(Consume);
+      consumerThread.Start();
+    }
+  }
+}
